@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import {
+  validateCustomerProfileUpdate,
   validateCustomerSignInInput,
   validateCustomerSignUpInput,
 } from '../services/customerAuthService';
@@ -34,6 +35,7 @@ export function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
     customerRegister,
     customerLogout,
     resendCustomerConfirmation,
+    updateCustomerProfile,
     showToast,
     websiteSettings,
   } = useStore();
@@ -43,6 +45,12 @@ export function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileErrors, setProfileErrors] = useState<{ fullName?: string; phone?: string }>({});
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<{
     fullName?: string;
@@ -56,6 +64,15 @@ export function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [confirmationNote, setConfirmationNote] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (customerSession?.isAuthenticated) {
+      setProfileName(customerSession.fullName || '');
+      setProfilePhone(customerSession.phone || '');
+      setProfileErrors({});
+      setProfileSaveError(null);
+    }
+  }, [customerSession?.fullName, customerSession?.isAuthenticated, customerSession?.phone]);
 
   // Reset transient form errors when switching between login and register views
   useEffect(() => {
@@ -182,6 +199,41 @@ export function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
     showToast('You have signed out');
   };
 
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaveError(null);
+
+    const validation = validateCustomerProfileUpdate({
+      fullName: profileName,
+      phone: profilePhone,
+    });
+    if (!validation.isValid) {
+      setProfileErrors({
+        fullName: validation.fullNameError,
+        phone: validation.phoneError,
+      });
+      return;
+    }
+
+    setProfileErrors({});
+    setIsSavingProfile(true);
+    try {
+      await updateCustomerProfile({
+        fullName: profileName,
+        phone: profilePhone,
+      });
+      showToast('Client profile details updated');
+    } catch (err) {
+      setProfileSaveError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unable to update your profile right now.'
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const switchMode = (nextMode: 'login' | 'register') => {
     setConfirmationEmail(null);
     setConfirmationNote(null);
@@ -267,7 +319,91 @@ export function CustomerAuthPage({ mode }: CustomerAuthPageProps) {
               made-to-measure briefs, and keep your bag synced across refreshes.
             </div>
 
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <form
+              onSubmit={handleSaveProfile}
+              noValidate
+              className="pt-4 border-t border-[#171717]/10 space-y-4"
+            >
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#171717]/75">
+                Saved Client Contact Details
+              </h2>
+
+              {profileSaveError && (
+                <div role="alert" className="p-3 bg-red-50 border border-red-200 text-xs text-red-800">
+                  {profileSaveError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="profile-full-name"
+                    className="block text-xs font-semibold text-[#171717] mb-1.5"
+                  >
+                    Full Name <span className="text-[#A68642]">*</span>
+                  </label>
+                  <input
+                    id="profile-full-name"
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => {
+                      setProfileName(e.target.value);
+                      if (profileErrors.fullName) {
+                        setProfileErrors((prev) => ({ ...prev, fullName: undefined }));
+                      }
+                    }}
+                    className={`w-full px-3 py-2 text-sm border bg-white focus:outline-none ${
+                      profileErrors.fullName
+                        ? 'border-red-500 focus:border-red-600'
+                        : 'border-[#171717]/20 focus:border-[#C6A45C]'
+                    }`}
+                  />
+                  {profileErrors.fullName && (
+                    <p className="mt-1 text-xs text-red-700">{profileErrors.fullName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="profile-phone"
+                    className="block text-xs font-semibold text-[#171717] mb-1.5"
+                  >
+                    Phone / WhatsApp{' '}
+                    <span className="font-normal text-[#171717]/55">(Optional)</span>
+                  </label>
+                  <input
+                    id="profile-phone"
+                    type="tel"
+                    value={profilePhone}
+                    onChange={(e) => {
+                      setProfilePhone(e.target.value);
+                      if (profileErrors.phone) {
+                        setProfileErrors((prev) => ({ ...prev, phone: undefined }));
+                      }
+                    }}
+                    placeholder="+234 801 234 5678"
+                    className={`w-full px-3 py-2 text-sm border bg-white focus:outline-none ${
+                      profileErrors.phone
+                        ? 'border-red-500 focus:border-red-600'
+                        : 'border-[#171717]/20 focus:border-[#C6A45C]'
+                    }`}
+                  />
+                  {profileErrors.phone && (
+                    <p className="mt-1 text-xs text-red-700">{profileErrors.phone}</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="px-4 py-2 border border-[#171717]/20 bg-[#FAF7F2] text-xs font-medium text-[#171717] hover:border-[#C6A45C] hover:bg-white disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                {isSavingProfile ? 'Saving Details...' : 'Save Contact Details'}
+              </button>
+            </form>
+
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2 border-t border-[#171717]/10">
               {postAuthRedirect ? (
                 <button
                   type="button"

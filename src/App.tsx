@@ -33,6 +33,7 @@ function StorefrontShell() {
       case 'checkout':
         return <CheckoutPage />;
       case 'login':
+      case 'account':
         return <CustomerAuthPage mode="login" />;
       case 'register':
         return <CustomerAuthPage mode="register" />;

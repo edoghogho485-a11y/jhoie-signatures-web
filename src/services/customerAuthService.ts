@@ -99,6 +99,39 @@ export function requireAuthenticatedCustomerSession(
   return session;
 }
 
+export interface CustomerProfileUpdateValidation {
+  isValid: boolean;
+  fullNameError?: string;
+  phoneError?: string;
+}
+
+export function validateCustomerProfileUpdate(params: {
+  fullName: string;
+  phone?: string;
+}): CustomerProfileUpdateValidation {
+  const fullName = params.fullName.trim();
+  const phone = (params.phone || '').trim();
+
+  const fullNameError =
+    fullName.length >= 2 && fullName.length <= 100
+      ? undefined
+      : 'Full name must be between 2 and 100 characters.';
+
+  let phoneError: string | undefined;
+  if (phone) {
+    const digits = phone.replace(/\D/g, '');
+    if (!/^\+?[\d\s\-()]+$/.test(phone) || digits.length < 10 || digits.length > 15) {
+      phoneError = 'Enter a valid phone number (10 to 15 digits) or leave blank.';
+    }
+  }
+
+  return {
+    isValid: !fullNameError && !phoneError,
+    fullNameError,
+    phoneError,
+  };
+}
+
 function getEmailRedirectUrl(): string | undefined {
   if (typeof window === 'undefined' || !window.location?.origin) {
     return undefined;
@@ -441,6 +474,55 @@ export const customerAuthService = {
     if (error) {
       throw new Error(mapSupabaseAuthErrorMessage(error.message));
     }
+  },
+
+  async updateProfile(
+    currentSession: CustomerAuthSession | null | undefined,
+    params: { fullName: string; phone?: string }
+  ): Promise<CustomerAuthSession> {
+    const active = requireAuthenticatedCustomerSession(currentSession, 'update your profile');
+    const validation = validateCustomerProfileUpdate(params);
+    if (!validation.isValid) {
+      throw new Error(
+        validation.fullNameError || validation.phoneError || 'Please review your profile details.'
+      );
+    }
+
+    const cleanName = params.fullName.trim();
+    const cleanPhone = (params.phone || '').trim() || undefined;
+
+    if (!isSupabaseConfigured()) {
+      const updatedPreview: CustomerAuthSession = {
+        ...active,
+        fullName: cleanName,
+        phone: cleanPhone,
+      };
+      persistPreviewSession(updatedPreview);
+      return updatedPreview;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      throw new Error('Authentication service is unavailable right now.');
+    }
+
+    const { error: profileErr } = await client
+      .from('profiles')
+      .update({
+        full_name: cleanName,
+        phone: cleanPhone ?? null,
+      })
+      .eq('id', active.userId);
+
+    if (profileErr) {
+      throw new Error(profileErr.message || 'Unable to update your profile right now.');
+    }
+
+    return {
+      ...active,
+      fullName: cleanName,
+      phone: cleanPhone,
+    };
   },
 
   async signOut(): Promise<void> {

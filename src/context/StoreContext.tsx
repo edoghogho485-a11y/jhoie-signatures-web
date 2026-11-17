@@ -163,7 +163,8 @@ function parseHashRoute(
     root === 'custom-orders' ||
     root === 'about' ||
     root === 'contact' ||
-    root === 'checkout'
+    root === 'checkout' ||
+    root === 'account'
   ) {
     return { route: root };
   }
@@ -278,6 +279,10 @@ interface StoreContextValue {
   }) => Promise<CustomerSignUpResult>;
   customerLogout: () => Promise<void>;
   resendCustomerConfirmation: (email: string) => Promise<void>;
+  updateCustomerProfile: (params: {
+    fullName: string;
+    phone?: string;
+  }) => Promise<CustomerAuthSession>;
   openCart: () => void;
   closeCart: () => void;
   addToCart: (params: {
@@ -954,6 +959,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await customerAuthService.resendConfirmationEmail(email);
   }, []);
 
+  const updateCustomerProfile = useCallback(
+    async (params: { fullName: string; phone?: string }) => {
+      const updated = await customerAuthService.updateProfile(customerSession, params);
+      setCustomerSession(updated);
+      return updated;
+    },
+    [customerSession]
+  );
+
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
@@ -1080,6 +1094,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       customerRegister,
       customerLogout,
       resendCustomerConfirmation,
+      updateCustomerProfile,
       openCart,
       closeCart,
       addToCart,
@@ -1140,6 +1155,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       customerRegister,
       customerLogout,
       resendCustomerConfirmation,
+      updateCustomerProfile,
       openCart,
       closeCart,
       addToCart,

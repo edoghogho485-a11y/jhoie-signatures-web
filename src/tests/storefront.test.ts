@@ -14,6 +14,7 @@ import {
 import {
   customerAuthService,
   requireAuthenticatedCustomerSession,
+  validateCustomerProfileUpdate,
   validateCustomerSignInInput,
   validateCustomerSignUpInput,
 } from '../services/customerAuthService.ts';
@@ -1137,6 +1138,23 @@ test('Mandatory customer session guard blocks guest checkout/custom orders and c
   const restored = await customerAuthService.restoreSession();
   assert.equal(restored?.email, 'adaeze@example.com');
   assert.equal(restored?.role, 'customer');
+
+  // Validate profile update checks & persistence
+  const invalidProfile = validateCustomerProfileUpdate({
+    fullName: 'A',
+    phone: '123',
+  });
+  assert.equal(invalidProfile.isValid, false);
+  assert.ok(invalidProfile.fullNameError);
+  assert.ok(invalidProfile.phoneError);
+
+  const updatedProfile = await customerAuthService.updateProfile(restored, {
+    fullName: 'Adaeze Eze-Okonkwo',
+    phone: '+234 803 555 0199',
+  });
+  assert.equal(updatedProfile.fullName, 'Adaeze Eze-Okonkwo');
+  assert.equal(updatedProfile.phone, '+234 803 555 0199');
+  assert.equal(updatedProfile.role, 'customer');
 
   await customerAuthService.signOut();
   assert.equal(await customerAuthService.restoreSession(), null);

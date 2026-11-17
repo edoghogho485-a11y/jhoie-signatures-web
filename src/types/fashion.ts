@@ -219,6 +219,7 @@ export type AppRoute =
   | 'checkout'
   | 'login'
   | 'register'
+  | 'account'
   | 'admin';
 
 export type AdminSection =

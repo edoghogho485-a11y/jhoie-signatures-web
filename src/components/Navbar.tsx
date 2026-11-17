@@ -96,7 +96,7 @@ export function Navbar() {
               )}
               <button
                 type="button"
-                onClick={() => navigate('login')}
+                onClick={() => navigate('account')}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-[#171717]/15 bg-[#FAF7F2] text-[#171717] hover:border-[#C6A45C] transition-colors whitespace-nowrap min-h-[40px] cursor-pointer"
                 title={customerSession.email}
               >
